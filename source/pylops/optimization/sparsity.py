@@ -9,9 +9,9 @@ __all__ = [
 
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
-from pylops.optimization.cls_sparsity import FISTA, IRLS, ISTA, OMP, SPGL1, SplitBregman
-from pylops.utils.decorators import add_ndarray_support_to_solver
-from pylops.utils.typing import NDArray, SamplingLike
+from source.pylops.optimization.cls_sparsity import FISTA, IRLS, ISTA, OMP, SPGL1, SplitBregman
+from source.pylops.utils.decorators import add_ndarray_support_to_solver
+from source.pylops.utils.typing import NDArray, SamplingLike
 
 if TYPE_CHECKING:
     from pylops.linearoperator import LinearOperator

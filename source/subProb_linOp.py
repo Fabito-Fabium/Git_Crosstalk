@@ -10,7 +10,7 @@ random.seed(42)
 
 class ownlinOp:
 
-    def __init__(self, Fs, Fc, Nh, Nt, Ne, f, h, idx, remez=True):
+    def __init__(self, Fs, Fc, Nh, Nt, Ne, f, h, idx, remez=True, filt=None):
         self.Fs = Fs
         self.Fc = Fc
         self.Nh = Nh
@@ -21,6 +21,11 @@ class ownlinOp:
         self.idx = idx
         self.Nc = len(idx)
         self.remez = remez
+        if remez:
+            self.filt = self.remez_filt()
+        else:
+            self.filt = filt
+        self.dCss = 3
 
     def _get_(self):
         return self.f, self.h, self.idx, self.Nt, self.Ne, self.Nc, self.Nh
@@ -78,39 +83,36 @@ class ownlinOp:
             y[:, i] += self.FoT(x_, i, f)
         return y.ravel()
 
-    def H(self, x_, h=None):
-        _, op, idx, Nt, Ne, Nc, Nh = self._get_()
-        dCss = 3
+    def H(self, x_, op=None):
+        try:
+            h = op.reshape(self.Nh, self.Nc, )
+        except AttributeError:
+            h = self.h.reshape(self.Nh, self.Nc, )
 
-        if h is None:
-            h = op
-
-        h = h.reshape(Nh, Nc, )
-        x = x_.reshape(Nt, Ne, )
-        y = np.zeros((Nt, Ne))
-        for i in range(Nc):
-            y[dCss:, idx[i][0]] += ss.convolve(x[:, idx[i][1]], h[:, i], mode="same", method="fft")[:-dCss]
-            y[dCss:, idx[i][1]] += ss.convolve(x[:, idx[i][0]], h[:, i], mode="same", method="fft")[:-dCss]
+        x = x_.reshape(self.Nt, self.Ne, )
+        y = np.zeros((self.Nt, self.Ne))
+        for i in range(self.Nc):
+            y[self.dCss:, self.idx[i][0]] += ss.convolve(x[:, self.idx[i][1]], h[:, i], mode="same", method="fft")[:-self.dCss]
+            y[self.dCss:, self.idx[i][1]] += ss.convolve(x[:, self.idx[i][0]], h[:, i], mode="same", method="fft")[:-self.dCss]
         return y.ravel()
 
-    def HT(self, x_, h=None):
-        _, op, idx, Nt, Ne, Nc, Nh = self._get_()
-        dCss = 3
+    def HT(self, x_, op=None):
+        try:
+            h = op.reshape(self.Nh, self.Nc, )
+        except AttributeError:
+            h = self.h.reshape(self.Nh, self.Nc, )
 
-        if h is None:
-            h = op
-
-        if -((Nh - 1) // 2) + dCss >= 0:
-            slcH = slice(dCss + Nh // 2, Nt + dCss + Nh // 2)
+        if -((self.Nh - 1) // 2) + self.dCss >= 0:
+            slcH = slice(self.dCss + self.Nh // 2, self.Nt + self.dCss + self.Nh // 2)
         else:
-            slcH = slice(dCss + Nh // 2, -((Nh - 1) // 2) + dCss)
+            slcH = slice(self.dCss + self.Nh // 2, -((self.Nh - 1) // 2) + self.dCss)
 
-        h = h.reshape(Nh, Nc, )
-        x = x_.reshape(Nt, Ne, )
-        y = np.zeros((Nt, Ne))
-        for i in range(Nc):
-            y[:, idx[i][1]] += ss.correlate(x[:, idx[i][0]], h[:, i], mode="full")[slcH]
-            y[:, idx[i][0]] += ss.correlate(x[:, idx[i][1]], h[:, i], mode="full")[slcH]
+        h = h.reshape(self.Nh, self.Nc, )
+        x = x_.reshape(self.Nt, self.Ne, )
+        y = np.zeros((self.Nt, self.Ne))
+        for i in range(self.Nc):
+            y[:, self.idx[i][1]] += ss.correlate(x[:, self.idx[i][0]], h[:, i], mode="full")[slcH]
+            y[:, self.idx[i][0]] += ss.correlate(x[:, self.idx[i][1]], h[:, i], mode="full")[slcH]
         return y.ravel()
 
     def norm(self, x):
@@ -123,7 +125,7 @@ class ownlinOp:
         s2x = np.mean(x_clean ** 2)
         s2w = s2x * 10 ** (-SNR / 10)
 
-        w = np.sqrt(s2w) * np.random.randn(x_clean.shape[0])
+        w = np.sqrt(s2w) * np.random.randn(len(x_clean))
 
         SNR_calc = 10 * np.log10(np.mean(x_clean ** 2) / np.mean(w ** 2))
 
@@ -131,7 +133,7 @@ class ownlinOp:
 
         x_SNR = x_clean + w
 
-        return x_SNR.reshape(x_shape)
+        return x_SNR.reshape(x_shape), w
 
     def score_teng(self, img):
         """Implements the Tenengrad (TENG) focus measure operator.
@@ -159,34 +161,38 @@ class ownlinOp:
 
         return b
 
-    def D(self, x, filt=None):
+    def D(self, x):
         Nt = self.Nt
         Ne = self.Ne
         remez = self.remez
 
         x_ = x.reshape((Nt, Ne), )
         y = np.zeros((Nt, Ne), dtype=dtype)
-        for i in range(Ne):
-            if remez:
-                y[:, i] = ss.convolve(x_[:, i], self.remez_filt(), mode="same", method="fft")
-            else:
-                y[:, i] = ss.convolve(x_[:, i], filt[:, i], mode="same", method="fft")
+
+        if remez:
+            for i in range(Ne):
+                y[:, i] = ss.convolve(x_[:, i], self.filt, mode="same", method="fft")
+        else:
+            for i in range(Ne):
+                y[:, i] = ss.convolve(x_[:, i], self.filt[:, i], mode="same", method="fft")
 
         return y.ravel()
 
-    def DT(self, x, filt=None):
+    def DT(self, x):
         Nt = self.Nt
         Ne = self.Ne
         remez = self.remez
 
         x_ = x.reshape((Nt, Ne), )
         y = np.zeros((Nt, Ne), dtype=dtype)
-        for i in range(Ne):
 
-            if remez:
-                y[:, i] = ss.convolve(x_[:, i], self.remez_filt(), mode="same", method="fft")
-            else:
-                y[:-1, i] = ss.correlate(x_[:, i], filt[:, i], mode="same", method="fft")[1:]
+
+        if remez:
+            for i in range(Ne):
+                y[:, i] = ss.convolve(x_[:, i], self.filt, mode="same", method="fft")
+        else:
+            for i in range(Ne):
+                y[:-1, i] = ss.correlate(x_[:, i], self.filt[:, i], mode="same", method="fft")[1:]
 
         return y.ravel()
 

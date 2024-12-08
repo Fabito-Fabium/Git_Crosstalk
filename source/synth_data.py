@@ -4,17 +4,22 @@ from itertools import combinations
 import matplotlib.pyplot as plt
 from scipy import signal
 from source.subProb_linOp import ownlinOp
+from source.fetch_data import fetch
 # %%
 # Definindo os parâmetros do problema
 dtype = np.float32
 
 class synth_data:
-    def __init__(self, Fs, Fc, Nh, Nt, Ne):
+    def __init__(self, Fs, Fc, Nh, Nt, Ne, bw, vmax=1, sim_dt=True):
         self.Fs = Fs
         self.Fc = Fc
         self.Nh = Nh
         self.Nt = Nt
         self.Ne = Ne
+        self.sim_dt = sim_dt
+        self.bw = bw
+        self.vmax = vmax
+        self.pulse = None
 
     def _get_(self):
         Fs = self.Fs
@@ -27,44 +32,13 @@ class synth_data:
     def create_synth(self):
         Fs, Fc, Nh, Nt, Ne = self._get_()
 
+        if not(self.sim_dt):
+            real_gain = fetch().gain()
+        else:
+            real_gain = None
+
         t = np.arange(Nt, dtype=dtype)/Fs
 
-        # Simulação do problema (seção referente ao f)
-        f = np.zeros((Nt, Ne), dtype=dtype)
-
-        for ne in range(Ne):
-            #f[:, ne] = ss.gausspulse((t - 15*ne/Fs)/1, Fc)
-            f[:, ne] = ss.gausspulse((t - (ne/Ne)*Nt/Fs), Fc)
-
-        # plt.imshow(f, aspect='auto', interpolation='nearest')
-
-        # Simulação do problema (seção referente ao h)
-        # idx = list(combinations(range(Ne), 2))
-        idx = [(i, j) for i, j in combinations(range(Ne), 2) if abs(i-j) < 30]
-
-        Nc = len(idx)
-        h = np.zeros((Nh, Nc))
-        for i in range(Nc):
-            h[:, i] = np.zeros(Nh)
-            d = idx[i][0] - idx[i][1]
-            h[min(Nh-1, np.abs(d)-1), i] = np.exp(-d**2/10)
-
-        # plt.figure()
-        # plt.imshow(h.T, aspect='auto', interpolation='nearest', cmap='Greys')
-        # plt.colorbar()
-
-        # plt.imshow(h, aspect='auto', interpolation='nearest')
-
-        mylin = ownlinOp(Fs, Fc, Nh, Nt, Ne, f, h, idx)
-
-        g = mylin.F(h)
-
-        return f, h, idx, g
-
-    def create_pulse(self):
-        Fs, Fc, Nh, Nt, Ne = self._get_()
-        t = np.arange(Nt, dtype=dtype) / Fs
-        bw = .75
 
         f = np.zeros((Nt, Ne), dtype=dtype)
         pulse = np.zeros((Nt, Ne), dtype=dtype)
@@ -72,7 +46,7 @@ class synth_data:
         for ne in range(Ne - 1):
             # tau = t - 15*ne/Fs
             tau = (t - (ne / Ne + 1 / Ne) * Nt / Fs)
-            f[:, ne] = ss.gausspulse(tau, Fc, bw)
+            f[:, ne] = self.vmax*ss.gausspulse(tau, Fc, self.bw)
 
             F = np.fft.fft(f[:, ne])
             # Pulse = np.zeros_like(F) + np.max(np.abs(F))
@@ -83,7 +57,33 @@ class synth_data:
             pulse[t0, ne] = np.max(np.abs(F))
             pulse[:, ne] -= f[:, ne]
 
-        return pulse
+        self.pulse = pulse
+
+        # plt.imshow(f, aspect='auto', interpolation='nearest')
+        # plt.plot(pulse)
+
+        # Simulação do problema (seção referente ao h)
+        idx = list(combinations(range(Ne), 2))
+        # idx = [(i, j) for i, j in combinations(range(Ne), 2) if abs(i-j) < 30]
+
+        Nc = len(idx)
+        h = np.zeros((Nh, Nc))
+        for i in range(Nc):
+            h[:, i] = np.zeros(Nh)
+            d = idx[i][0] - idx[i][1]
+            if self.sim_dt:
+                h[min(Nh-1, np.abs(d)-1), i] = np.exp(-d**2/10)
+            else:
+                h[min(Nh-1, np.abs(d)-1), i] = real_gain[np.abs(d)]
+
+
+        mylin = ownlinOp(Fs, Fc, Nh, Nt, Ne, f, h, idx)
+        g = mylin.F(h, f)
+
+        return f, h, idx, g
+
+    def get_pulse(self):
+        return self.pulse
 
     def plot_response(self, w, h, title):
         "Utility function to plot response functions"

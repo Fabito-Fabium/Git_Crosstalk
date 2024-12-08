@@ -6,15 +6,15 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 from scipy.sparse.linalg import lsqr
 
-from pylops import LinearOperator
-from pylops.basicoperators import Diagonal, Identity, VStack
-from pylops.optimization.basesolver import Solver
-from pylops.optimization.basic import cgls
-from pylops.optimization.eigs import power_iteration
-from pylops.optimization.leastsquares import regularized_inversion
-from pylops.utils import deps
-from pylops.utils.backend import get_array_module, get_module_name
-from pylops.utils.typing import InputDimsLike, NDArray, SamplingLike
+from source.pylops import LinearOperator
+from source.pylops.basicoperators import Diagonal, Identity, VStack
+from source.pylops.optimization.basesolver import Solver
+from source.pylops.optimization.basic import cgls
+from source.pylops.optimization.eigs import power_iteration
+from source.pylops.optimization.leastsquares import regularized_inversion
+from source.pylops.utils import deps
+from source.pylops.utils.backend import get_array_module, get_module_name
+from source.pylops.utils.typing import InputDimsLike, NDArray, SamplingLike
 
 spgl1_message = deps.spgl1_import("the spgl1 solver")
 
