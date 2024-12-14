@@ -1,106 +1,188 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+# %%
 import matplotlib
 matplotlib.use('TkAgg')
 
+########################################################################################################################
 # %%
-from tqdm import tqdm
-
-import numpy as np
-import matplotlib.pyplot as plt
-from scipy import signal
-
-from scipy.optimize import minimize
-from scipy.optimize import Bounds
-import scipy.sparse.linalg as la
+import pyproximal
 from time import time
+import time as temp
+import cv2
+import scipy.signal as ss
+import numpy as np
+from itertools import combinations
+import matplotlib.pyplot as plt
+import scipy.sparse.linalg as la
+from scipy import signal
+from matplotlib import animation
+
+import pyproximal
+import pylops.linearoperator as pl
+import pylops
+from tqdm import tqdm
 
 from source.synth_data import synth_data
 from source.subProb_linOp import ownlinOp
-
+import source.pylops as my_pylops
 import random
+
+
+from scipy.optimize import minimize
+from scipy.optimize import Bounds
+
 random.seed(42)
-# %%
-# Definindo os parâmetros do problema
+plt.ion()
+# %% ###################################################################################################################
+# Definindo os parâmetros do problema ##################################################################################
 dtype = np.float32
 
 Fs = 125e6
 Fc = 5e6
 Nh = 8
 Nt = 1875
-Ne = 15
+Ne = 5
 
-mySys = synth_data(Fs, Fc, Nh, Nt, Ne, vmax=1e5, bw=0.75, sim_dt=False)
-f, h, idx, g = mySys.create_synth()
+mySys = synth_data(Fs, Fc, Nh, Nt, Ne, vmax=1, bw=0.75, sim_dt=False)
+f, h, idx, crs = mySys.create_synth()
 olo = ownlinOp(Fs, Fc, Nh, Nt, Ne, f, h, idx, remez=True, filt=mySys.get_pulse())
-g = olo.apply_SNR(g, 40)
+
+g_clean = crs + f.ravel()
+crs = olo.apply_SNR(crs, 40)[0]
+g, w_g = olo.apply_SNR(g_clean, 40)
+
 
 Nc = len(idx)
 
-# %%
-# seja um hest_{0} onde o max é em elementos com distância 1:
-hest = np.zeros_like(h)
-for i in range(Nc):
-    d = idx[i][0] - idx[i][1]
-    if abs(d) == 1:
-        hest[0:1, i] = 0.9
+# show_plt()
+########################################################################################################################
 
-# grafico da primeira estimativa para h
-fig, axs = plt.subplots(ncols=2)
-axs[0].imshow((h).T, aspect='auto', cmap = 'Greys')
-axs[0].set_title('h real')
-axs[1].imshow((hest).T, aspect='auto', cmap = 'Greys')
-axs[1].set_title('hest')
+# %%
+def reset_all():
+    # hest = np.zeros_like(h)
+    # for i in range(Nc):
+    #     d = idx[i][0] - idx[i][1]
+    #     if abs(d) == 1:
+    #         hest[0:1, i] = 0.9
+    hest = olo.apply_SNR(h.ravel(), -2)[0]
+    # grafico da primeira estimativa para h
+    # fig, axs = plt.subplots(ncols=2)
+    # axs[0].imshow((h).T, aspect='auto', cmap = 'Greys')
+    # axs[0].set_title('h real')
+    # axs[1].imshow((hest).T, aspect='auto', cmap = 'Greys')
+    # axs[1].set_title('hest')
+    # plt.figure()
+    # plt.imshow((h - hest).T, aspect='auto', vmax=1, vmin=-1, cmap='seismic')
+    # plt.title(f"norm: {norm(h-hest)}")
+    # plt.colorbar()
+
+
+
+
+    Fest_F_norm = np.zeros(numiter)
+    Hest_H_norm = np.zeros(numiter)
+    Hf_g_norm = np.zeros(numiter)
+    Fh_g_norm = np.zeros(numiter)
+    Gest_G_norm = np.zeros(numiter)
+    fest = (olo.apply_SNR(f, 5)[0]).reshape(Nt, Ne)
+    return Fest_F_norm, Hest_H_norm, Hf_g_norm, Fh_g_norm, Gest_G_norm, fest, hest
+
+numiter = 100
 # plt.figure()
-# plt.imshow((h - hest).T, aspect='auto', vmax=1, vmin=-1, cmap='seismic')
-# plt.title(f"norm: {norm(h-hest)}")
-# plt.colorbar()
-
-
-numiter = 1000
-
-Fest_F_norm = np.zeros(numiter)
-Hest_H_norm = np.zeros(numiter)
-Hf_g_norm = np.zeros(numiter)
-Fh_g_norm = np.zeros(numiter)
-Gest_G_norm = np.zeros(numiter)
-fest = (g+f.ravel()).reshape(Nt, Ne)
-lmbd_h = 0.05
-lmbd_f = 0.004
-plt.figure()
-plt.imshow(fest, aspect='auto')
-plt.title('Primeiro f estimado')
-# %%
+# plt.imshow(fest, aspect='auto', interpolation='nearest')
+# plt.title('Primeiro f estimado')
+# %% # Hf = g first ####################################################################################################
+Fest_F_norm, Hest_H_norm, Hf_g_norm, Fh_g_norm, Gest_G_norm, fest, hest = reset_all()
+mthd = "L-BFGS-B"
+lmbd_f = 2
+opts = {'maxiter': 200, 'disp': False}
 for i in range(numiter):
-    # subproblema Fh = g - f
-    AF = la.LinearOperator((Nt*Ne, Nc*Nh), matvec=lambda x: F(x, fest), rmatvec=lambda x: FT(x, fest))
-    l1 = pyproximal.L1()
 
-    l2 = pyproximal.L2(Op=pylops.LinearOperator(AF), b=g)
-    hest = pyproximal.optimization.primal.ProximalGradient(l2, l1, x0=hest.ravel(), niter=200, epsg=lmbd_h,show=False, acceleration='fista', nonneg=True)
+    print('sub h \n')
+    homp = np.zeros((Nh, Nc))
+    for j in tqdm(range(Nc)):
+        AF = la.LinearOperator((Nt * Ne, Nh), matvec=lambda x: olo.Fo(x, j, fest), rmatvec=lambda x: olo.FoT(x, j, fest))
+        AFp = my_pylops.LinearOperator(AF)
+        homp[:, j] = my_pylops.optimization.sparsity.omp(AFp, g.ravel() - fest.ravel(), niter_outer=200, niter_inner=Ne, sigma=1e-10,
+                                                         normalizecols=True, nonneg=True, discard=True)[0]
 
-    # subproblema Hf = g - f
+    hest = homp
+    print('sub f \n')
+    AH = la.LinearOperator((Nt * Ne, Nt * Ne), matvec=lambda x: olo.HT(olo.H(x, hest), hest) + lmbd_f * olo.DT(olo.D(x)))
 
-    AH = la.LinearOperator((Nt * Ne, Nt * Ne), matvec=lambda x: H(x, hest), rmatvec=lambda x: HT(x, hest))
+    def fun(x):
+        res = olo.H(x, hest) - (g - x)
+        min = olo.norm(res) + lmbd_f * olo.norm(olo.D(x))
+        jac = (AH * x + olo.H(x, hest) + olo.HT(x - g, hest) + (x - g))
+        return min, jac
 
-    l2 = pyproximal.L2(Op=pylops.LinearOperator(AH), b=g.ravel())
-    l1 = pyproximal.L1(sigma=lambda x: normalized_energy(x).ravel())
 
-    fest = pyproximal.optimization.primal.ProximalGradient(l2, l1, x0=np.zeros(Nt * Ne), epsg=lmbd_f, niter=120,
-                                                           show=False, acceleration='fista', nonneg=False).reshape(Nt, Ne)
+    x0 = np.zeros((Nt, Ne)).ravel()
+    fest = minimize(fun, x0, method=mthd, jac=True, options=opts).x.reshape(Nt, Ne)
 
-    # AH = la.LinearOperator((Nt * Ne, Nt * Ne), matvec=lambda x: HT(H(x, hest), hest) + lmbd_f*DT(D(x)))
-    # fest = la.minres(AH, HT(g, hest), x0=fest.ravel(), maxiter=200, rtol=1e-20, show=False)[0].reshape(Nt, Ne)  # 9 s
-    # if (abs(norm(H(fest_new, hest)-g)) < abs(norm(H(fest, hest)-g))) | (np.mean(H(fest_new, hest)-g)**2 < np.mean(norm(H(fest, hest)-g)))**2:
-    #     fest = fest_new
+    Hf_g_norm[i] = olo.norm(olo.H(f, hest) - crs)
+    Fh_g_norm[i] = olo.norm(olo.F(h, fest) - crs)
+    Fest_F_norm[i] = olo.norm(fest.ravel() - f.ravel())
+    Hest_H_norm[i] = olo.norm(hest.ravel() - h.ravel())
+    Gest_G_norm[i] = olo.norm(olo.H(fest, hest) - crs)
+    print(f"{i: 4d} \t Hf - g: {Hf_g_norm[i]: .5f} \t Fh - g: {Fh_g_norm[i]: .5f} \t fest - f: "
+          f"{Fest_F_norm[i]: .5f} \t hest - h: {Hest_H_norm[i]: .5f} \t\t Hest(f) - g: {Gest_G_norm[i]: .5f}")
 
-    Hf_g_norm[i] = norm(H(f, hest) - g)
-    Fh_g_norm[i] = norm(F(h, fest) - g)
-    Fest_F_norm[i] = norm(fest.ravel() - f.ravel())
-    Hest_H_norm[i] = norm(hest.ravel() - h.ravel())
-    Gest_G_norm[i] = norm(H(fest, hest) - g)
-    print(f"{i: 4d} \t Hf - g: {Hf_g_norm[i]: .5f} \t Fh - g: {Fh_g_norm[i]: .5f} \t fest - f: {Fest_F_norm[i]: .5f} \t hest - h: {Hest_H_norm[i]: .5f} \t\t Hest(f) - g: {Gest_G_norm[i]: .5f}")
+# %% # Fh = g first ####################################################################################################
+Fest_F_norm, Hest_H_norm, Hf_g_norm, Fh_g_norm, Gest_G_norm, fest, hest = reset_all()
+lmbd_f = 2
+mthd = "L-BFGS-B"
+opts = {'maxiter': 200, 'disp': False}
+b_OMP = olo.apply_SNR(crs, 10)[0]
+plt.ion()
+hest_anim = np.zeros((Nh, Nc, numiter))
+h_last = 0
+f_last = 0
+for i in range(numiter):
+    hest_anim[:, :, i] = hest.reshape(Nh, Nc)
+    AH = la.LinearOperator((Nt * Ne, Nt * Ne), matvec=lambda x: olo.HT(olo.H(x, hest), hest) + lmbd_f * olo.DT(olo.D(x)))
 
+    def fun(x):
+        res = olo.H(x, hest) - (g - x)
+        min = olo.norm(res) + lmbd_f * olo.norm(olo.D(x))
+        jac = (AH * x + olo.H(x, hest) + olo.HT(x - g, hest) + (x - g))
+        return min, jac
+
+
+    #x0 = fest.ravel()
+    x0 = np.zeros(Nt*Ne)
+    fest = minimize(fun, x0, method=mthd, jac=True, options=opts).x.reshape(Nt, Ne)
+
+    Hf_g_norm[i] = olo.norm(olo.H(f, hest) - crs)
+    Fh_g_norm[i] = olo.norm(olo.F(h, fest) - crs)
+    Fest_F_norm[i] = olo.norm(fest.ravel() - f.ravel())
+    Hest_H_norm[i] = olo.norm(hest.ravel() - h.ravel())
+    Gest_G_norm[i] = olo.norm(olo.H(fest, hest) - crs)
+    print(f"f{i: 4d} \t Hf - g: {Hf_g_norm[i]: .5f} \t Fh - g: {Fh_g_norm[i]: .5f} \t fest - f: "
+          f"{Fest_F_norm[i]: .5f} \t hest - h: {Hest_H_norm[i]: .5f} \t\t Hest(f) - g: {Gest_G_norm[i]: .5f}")
+
+    homp = np.zeros((Nh, Nc))
+    for j in tqdm(range(Nc)):
+        AF = la.LinearOperator((Nt * Ne, Nh), matvec=lambda x: olo.Fo(x, j, fest),
+                               rmatvec=lambda x: olo.FoT(x, j, fest))
+        AFp = my_pylops.LinearOperator(AF)
+        homp[:, j] = my_pylops.optimization.sparsity.omp(AFp, b_OMP,
+                                            niter_outer=200, niter_inner=Ne, sigma=1e-10,
+                                            normalizecols=True, nonneg=True, discard=True)[0]
+
+    hest = homp
+
+
+    Hf_g_norm[i] = olo.norm(olo.H(f, hest) - crs)
+    Fh_g_norm[i] = olo.norm(olo.F(h, fest) - crs)
+    Fest_F_norm[i] = olo.norm(fest.ravel() - f.ravel())
+    Hest_H_norm[i] = olo.norm(hest.ravel() - h.ravel())
+    Gest_G_norm[i] = olo.norm(olo.H(fest, hest) - crs)
+    print(f"h{i: 4d} \t Hf - g: {Hf_g_norm[i]: .5f} \t Fh - g: {Fh_g_norm[i]: .5f} \t fest - f: "
+          f"{Fest_F_norm[i]: .5f} \t hest - h: {Hest_H_norm[i]: .5f} \t\t Hest(f) - g: {Gest_G_norm[i]: .5f}")
+    plt.close('all')
+
+    if olo.norm(hest.ravel() - h.ravel()) < 1e-6:
+        break
 
 # %%
 plt.close("all")
@@ -121,9 +203,25 @@ plt.figure()
 plt.plot(Gest_G_norm[:i])
 plt.title("norm Hest(fest) - G ")
 
-
 fig, axs = plt.subplots(ncols=2)
-axs[0].imshow(h.reshape(Nh,Nc).T, aspect='auto', vmax=1, vmin=0, cmap='Greys')
+axs[0].imshow(h.reshape(Nh,Nc).T, aspect='auto', cmap='Greys')
 axs[0].set_title("h real")
-axs[1].imshow(hest.reshape(Nh,Nc).T, aspect='auto', vmax=1, vmin=0, cmap='Greys')
+axs[1].imshow(hest.reshape(Nh,Nc).T, aspect='auto', cmap='Greys')
 axs[1].set_title("h estimado")
+
+# %%
+from matplotlib import animation
+# %%
+fig = plt.figure()
+im = plt.imshow(hest_anim[:, :, 0].T, cmap='Greys', interpolation='nearest', aspect='auto')
+plt.colorbar(im)
+plt.show()
+
+def animate(i):
+    art = hest_anim[:, :, i].T
+    im.set_array(art)
+
+ani = animation.FuncAnimation(fig, animate, frames=50, interval=1e-7)
+writervideo = animation.FFMpegWriter(fps=5)
+ani.save('hest_c15dB_h-MOD.mp4', writer=writervideo)
+plt.close()

@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="41c347de-886d-4c43-a40a-969d6d180e45" name="Changes" comment="Non-constant crosstalk index on optimization loop">
+      <change afterPath="$PROJECT_DIR$/algo/sift_emd.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/algo/OMP/Fhg_OMP.py" beforeDir="false" afterPath="$PROJECT_DIR$/algo/OMP/Fhg_OMP.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/algo/OMP/Hfg subproblem.py" beforeDir="false" afterPath="$PROJECT_DIR$/algo/OMP/Hfg subproblem.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/algo/OMP/crosstalk_full.py" beforeDir="false" afterPath="$PROJECT_DIR$/algo/OMP/crosstalk_full.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="FlaskConsoleOptions" custom-start-script="import sys&#10;sys.path.extend([WORKING_DIR_AND_PYTHON_PATHS])&#10;from flask.cli import ScriptInfo&#10;locals().update(ScriptInfo(create_app=None).load_app().make_shell_context())&#10;print(&quot;Python %s on %s\nApp: %s [%s]\nInstance: %s&quot; % (sys.version, sys.platform, app.import_name, app.env, app.instance_path))">
+    <envs>
+      <env key="FLASK_APP" value="app" />
+    </envs>
+    <option name="myCustomStartScript" value="import sys&#10;sys.path.extend([WORKING_DIR_AND_PYTHON_PATHS])&#10;from flask.cli import ScriptInfo&#10;locals().update(ScriptInfo(create_app=None).load_app().make_shell_context())&#10;print(&quot;Python %s on %s\nApp: %s [%s]\nInstance: %s&quot; % (sys.version, sys.platform, app.import_name, app.env, app.instance_path))" />
+    <option name="myEnvs">
+      <map>
+        <entry key="FLASK_APP" value="app" />
+      </map>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;Fabito-Fabium&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/Fabito-Fabium/Git_Crosstalk.git&quot;,
+    &quot;accountId&quot;: &quot;147d4724-d598-44f0-b856-7da72920019b&quot;
+  }
+}</component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 3
+}</component>
+  <component name="ProjectId" id="2pri09giGCI7RwtXhsufLs49sUx" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "/home/lilpc/Documents",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "database.data.views.appearance",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-7c0b70fcd90d-JavaScript-PY-242.21829.153" />
+        <option value="bundled-python-sdk-464836ebc622-b74155a9e76b-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-242.21829.153" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="41c347de-886d-4c43-a40a-969d6d180e45" name="Changes" comment="" />
+      <created>1733530370080</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1733530370080</updated>
+      <workItem from="1733530371129" duration="812000" />
+      <workItem from="1733531196128" duration="2405000" />
+      <workItem from="1733533644054" duration="257000" />
+      <workItem from="1733534162456" duration="3000" />
+      <workItem from="1733534179792" duration="36000" />
+      <workItem from="1733534247359" duration="475000" />
+      <workItem from="1733534734354" duration="5128000" />
+      <workItem from="1733572578381" duration="10829000" />
+      <workItem from="1733596360135" duration="12280000" />
+      <workItem from="1733610335385" duration="4976000" />
+      <workItem from="1733618148947" duration="13403000" />
+      <workItem from="1733788354537" duration="16577000" />
+    </task>
+    <task id="LOCAL-00001" summary="Non-constant crosstalk index on optimization loop">
+      <option name="closed" value="true" />
+      <created>1733632152578</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1733632152578</updated>
+    </task>
+    <task id="LOCAL-00002" summary="Non-constant crosstalk index on optimization loop">
+      <option name="closed" value="true" />
+      <created>1733632175050</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1733632175050</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State>
+              <option name="FILTERS">
+                <map>
+                  <entry key="branch">
+                    <value>
+                      <list>
+                        <option value="main" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+            </State>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Non-constant crosstalk index on optimization loop" />
+    <option name="LAST_COMMIT_MESSAGE" value="Non-constant crosstalk index on optimization loop" />
+  </component>
+</project>
