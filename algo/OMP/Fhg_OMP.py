@@ -123,13 +123,26 @@ show_hest(hinv0, "Fista")
 show_stats(hinv0, w_g)
 # %% ###################################################################################################################
 homp = np.zeros((Nh, Nc))
-# t0 = time()
+t0 = time()
 for i in tqdm(range(Nc)):
     AF = la.LinearOperator((Nt * Ne, Nh), matvec=lambda x: olo.Fo(x, i), rmatvec=lambda x: olo.FoT(x, i))
     AFp = my_pylops.LinearOperator(AF)
     homp[:, i] = my_pylops.optimization.sparsity.omp(AFp, g.ravel() - f.ravel(),  niter_outer=200,
                     niter_inner=Ne, sigma=1e-10, normalizecols=True, nonneg=False, discard=False)[0]
-# t0 = time() - t0
+print(time() - t0)
+# %%
+from joblib import Parallel, delayed
+homp = np.zeros((Nh, Nc))
+t0 = time()
+def omp_col(ii):
+    AF = la.LinearOperator((Nt * Ne, Nh), matvec=lambda x: olo.Fo(x, ii), rmatvec=lambda x: olo.FoT(x, ii))
+    AFp = my_pylops.LinearOperator(AF)
+    homp_col = my_pylops.optimization.sparsity.omp(AFp, g.ravel() - f.ravel(),  niter_outer=200,
+                    niter_inner=Ne, sigma=1e-10, normalizecols=True, nonneg=False, discard=False)[0]
+
+    return homp_col
+output = Parallel(n_jobs=-1)(delayed(omp_col)(i) for i in range(Nc))
+print(time() - t0)
 # %%
 show_stats(homp, w_g)
 show_hest(homp, "MOD OMP")
