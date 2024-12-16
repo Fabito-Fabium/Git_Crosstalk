@@ -5,10 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="41c347de-886d-4c43-a40a-969d6d180e45" name="Changes" comment="Non-constant crosstalk index on optimization loop">
-      <change afterPath="$PROJECT_DIR$/parallel.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/algo/OMP/Fhg_OMP.py" beforeDir="false" afterPath="$PROJECT_DIR$/algo/OMP/Fhg_OMP.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/algo/OMP/crosstalk_full.py" beforeDir="false" afterPath="$PROJECT_DIR$/algo/OMP/crosstalk_full.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/source/synth_data.py" beforeDir="false" afterPath="$PROJECT_DIR$/source/synth_data.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -98,7 +96,10 @@
       <workItem from="1733610335385" duration="4976000" />
       <workItem from="1733618148947" duration="13403000" />
       <workItem from="1733788354537" duration="16577000" />
-      <workItem from="1734210822545" duration="17155000" />
+      <workItem from="1734210822545" duration="20312000" />
+      <workItem from="1734270944622" duration="4206000" />
+      <workItem from="1734275758150" duration="302000" />
+      <workItem from="1734276350283" duration="670000" />
     </task>
     <task id="LOCAL-00001" summary="Non-constant crosstalk index on optimization loop">
       <option name="closed" value="true" />

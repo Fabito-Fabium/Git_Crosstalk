@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 from scipy import signal
 from source.subProb_linOp import ownlinOp
 from source.fetch_data import fetch
+
+from joblib import Parallel, delayed
 # %%
 # Definindo os parâmetros do problema
 dtype = np.float32
@@ -29,7 +31,7 @@ class synth_data:
         Ne = self.Ne
         return Fs, Fc, Nh, Nt, Ne
 
-    def create_synth(self):
+    def create_synth(self, wave=False):
         Fs, Fc, Nh, Nt, Ne = self._get_()
 
         if not(self.sim_dt):
@@ -39,25 +41,27 @@ class synth_data:
 
         t = np.arange(Nt, dtype=dtype)/Fs
 
+        if wave == False:
+            f = np.zeros((Nt, Ne), dtype=dtype)
+            pulse = np.zeros((Nt, Ne), dtype=dtype)
 
-        f = np.zeros((Nt, Ne), dtype=dtype)
-        pulse = np.zeros((Nt, Ne), dtype=dtype)
+            for ne in range(Ne - 1):
+                # tau = t - 15*ne/Fs
+                tau = (t - (ne / Ne + 1 / Ne) * Nt / Fs)
+                f[:, ne] = self.vmax*ss.gausspulse(tau, Fc, self.bw)
 
-        for ne in range(Ne - 1):
-            # tau = t - 15*ne/Fs
-            tau = (t - (ne / Ne + 1 / Ne) * Nt / Fs)
-            f[:, ne] = self.vmax*ss.gausspulse(tau, Fc, self.bw)
+                F = np.fft.fft(f[:, ne])
+                # Pulse = np.zeros_like(F) + np.max(np.abs(F))
+                # Pulse -= np.abs(F)
+                # pulse[:, ne] = np.fft.ifft(Pulse)
 
-            F = np.fft.fft(f[:, ne])
-            # Pulse = np.zeros_like(F) + np.max(np.abs(F))
-            # Pulse -= np.abs(F)
-            # pulse[:, ne] = np.fft.ifft(Pulse)
+                t0 = np.abs(tau).argmin()
+                pulse[t0, ne] = np.max(np.abs(F))
+                pulse[:, ne] -= f[:, ne]
 
-            t0 = np.abs(tau).argmin()
-            pulse[t0, ne] = np.max(np.abs(F))
-            pulse[:, ne] -= f[:, ne]
+            self.pulse = pulse
+        else:
 
-        self.pulse = pulse
 
         # plt.imshow(f, aspect='auto', interpolation='nearest')
         # plt.plot(pulse)
