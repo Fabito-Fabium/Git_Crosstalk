@@ -61,7 +61,7 @@ class synth_data:
 
             self.pulse = pulse
         else:
-
+            print('dude')
 
         # plt.imshow(f, aspect='auto', interpolation='nearest')
         # plt.plot(pulse)
