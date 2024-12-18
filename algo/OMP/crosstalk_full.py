@@ -73,8 +73,8 @@ def reset_all():
     #     d = idx[i][0] - idx[i][1]
     #     if abs(d) == 1:
     #         hest[0:1, i] = 0.9
-    # hest = olo.apply_SNR(h.ravel(), -2)[0]
-    hest = olo.apply_SNR(hest_wrong_delay(), 5)[0]
+    hest = h.ravel()
+    # hest = olo.apply_SNR(hest_wrong_delay(), 5)[0]
     # grafico da primeira estimativa para h
     # fig, axs = plt.subplots(ncols=2)
     # axs[0].imshow((h).T, aspect='auto', cmap = 'Greys')
@@ -97,50 +97,65 @@ def reset_all():
     fest = (olo.apply_SNR(f, 5)[0]).reshape(Nt, Ne)
     return Fest_F_norm, Hest_H_norm, Hf_g_norm, Fh_g_norm, Gest_G_norm, fest, hest
 
-numiter = 100
+numiter = 200
 # plt.figure()
 # plt.imshow(fest, aspect='auto', interpolation='nearest')
 # plt.title('Primeiro f estimado')
 # %% # Hf = g first ####################################################################################################
-lmbd_f_spc = np.logspace(-5, 1, 100)
+
+
+lmbd_f_spc = np.logspace(-4, 1, 50)
 n_lmbd_f = np.zeros(len(lmbd_f_spc))
 mthd = "L-BFGS-B"
 opts = {'maxiter': 200, 'disp': False}
+from scipy.signal import savgol_filter
+g_ft = g.reshape(Nt, Ne).copy()
+for i in range(Ne):
+    g_ft[:, i] = savgol_filter(g_ft[:, i],  5, 2, mode='nearest')
+g_ft = g_ft.ravel()
+t0 = time()
 def get_lmbd_sub_f(lmbd_f_idx):
     lmbd_f = lmbd_f_spc[lmbd_f_idx]
     print(f"\n current lmbd:{lmbd_f}\n")
     Fest_F_norm, Hest_H_norm, Hf_g_norm, Fh_g_norm, Gest_G_norm, fest, hest = reset_all()
-    b_OMP = olo.apply_SNR(crs, 10)[0]
-
     # hest = olo.apply_SNR(hest, -2)[0]
     for i in range(numiter):
+        hest_anim[:, :, i] = hest.reshape(Nh, Nc)
 
         AH = la.LinearOperator((Nt * Ne, Nt * Ne),
                                matvec=lambda x: olo.HT(olo.H(x, hest), hest) + lmbd_f * olo.DT(olo.D(x)))
 
-
         def fun(x):
-            res = olo.H(x, hest) - (g - x)
+            res = olo.H(x, hest) - (g_ft - x)
             min = olo.norm(res) + lmbd_f * olo.norm(olo.D(x))
-            jac = (AH * x + olo.H(x, hest) + olo.HT(x - g, hest) + (x - g))
+            jac = (AH * x + olo.H(x, hest) + olo.HT(x - g_ft, hest) + (x - g_ft))
             return min, jac
 
-
-        # x0 = fest.ravel()
-        x0 = np.zeros(Nt * Ne)
+        x0 = fest.ravel()
+        # x0 = np.zeros(Nt*Ne)
         fest = minimize(fun, x0, method=mthd, jac=True, options=opts).x.reshape(Nt, Ne)
+
+        Hf_g_norm[i] = olo.norm(olo.H(fest) - crs)
+        Fh_g_norm[i] = olo.norm(olo.F(hest) - crs)
+        Fest_F_norm[i] = olo.norm(fest.ravel() - f.ravel())
+        Hest_H_norm[i] = olo.norm(hest.ravel() - h.ravel())
+        Gest_G_norm[i] = olo.norm(olo.H(fest, hest) - crs)
+        print(f"f{i: 4d} \t Hf - g: {Hf_g_norm[i]: .5f} \t Fh - g: {Fh_g_norm[i]: .5f} \t fest - f: "
+              f"{Fest_F_norm[i]: .5f} \t hest - h: {Hest_H_norm[i]: .5f} \t\t Hest(f) - g: {Gest_G_norm[i]: .5f}")
+
+        homp = np.zeros((Nh, Nc))
 
         def omp_col(ii):
             AF = la.LinearOperator((Nt * Ne, Nh), matvec=lambda x: olo.Fo(x, ii, fest),
                                    rmatvec=lambda x: olo.FoT(x, ii, fest))
             AFp = my_pylops.LinearOperator(AF)
-            homp_col = my_pylops.optimization.sparsity.omp(AFp, b_OMP,
-                                                           niter_outer=200, niter_inner=Ne, sigma=1e-5,
+            homp_col = my_pylops.optimization.sparsity.omp(AFp, g_ft - fest.ravel(),
+                                                           niter_outer=300, niter_inner=Ne, sigma=1e-10,
                                                            normalizecols=True, nonneg=False, discard=True)[0]
+
             return homp_col
 
-
-        par_out = Parallel(n_jobs=-2)(delayed(omp_col)(i) for i in range(Nc))
+        par_out = Parallel(n_jobs=-1)(delayed(omp_col)(i) for i in range(Nc))
 
         hest = np.array(par_out).T
 
@@ -149,14 +164,20 @@ def get_lmbd_sub_f(lmbd_f_idx):
         Fest_F_norm[i] = olo.norm(fest.ravel() - f.ravel())
         Hest_H_norm[i] = olo.norm(hest.ravel() - h.ravel())
         Gest_G_norm[i] = olo.norm(olo.H(fest, hest) - crs)
-        print(f"f{i: 4d} \t Hfest - g: {Hf_g_norm[i]: .5f} \t Fhest - g: {Fh_g_norm[i]: .5f} \t fest - f: "
-              f"{Fest_F_norm[i]: .5f} \t hest - h: {Hest_H_norm[i]: .5f} \t\t Hest(fest) - g: {Gest_G_norm[i]: .5f}")
+        print(f"h{i: 4d} \t Hf - g: {Hf_g_norm[i]: .5f} \t Fh - g: {Fh_g_norm[i]: .5f} \t fest - f: "
+              f"{Fest_F_norm[i]: .5f} \t hest - h: {Hest_H_norm[i]: .5f} \t\t Hest(f) - g: {Gest_G_norm[i]: .5f}")
+        plt.close('all')
 
         if olo.norm(hest.ravel() - h.ravel()) < 1e-6:
             break
+
     return np.mean(Gest_G_norm), np.mean(Hest_H_norm), np.mean(Fest_F_norm)
 
 lmbd_par = Parallel(n_jobs=-1)(delayed(get_lmbd_sub_f)(i) for i in range(len(lmbd_f_spc)))
+print(time() - t0)
+lmbd_par = np.array(lmbd_par)
+
+plt.loglog(lmbd_f_spc, lmbd_par[:, 2])
 
 # %%
 
@@ -168,11 +189,20 @@ plt.title(f"Lambda do subproblema Hf = g - f, melhor lmbd: {lmbd_f_spc[np.argmin
 
 # %% # Fh = g first ####################################################################################################
 Fest_F_norm, Hest_H_norm, Hf_g_norm, Fh_g_norm, Gest_G_norm, fest, hest = reset_all()
-lmbd_f = lmbd_f_spc[np.argmin(n_lmbd_f)]
+lmbd_f = lmbd_f_spc[np.argmin(lmbd_par[:, 2])]
+print(lmbd_f)
+# lmbd_f = 0.01
 mthd = "L-BFGS-B"
-opts = {'maxiter': 200, 'disp': False}
-b_OMP = olo.apply_SNR(crs, 10)[0]
+opts = {'maxiter': 1000, 'disp': False}
+
+from scipy.signal import savgol_filter
+g_ft = g.reshape(Nt, Ne).copy()
+for i in range(Ne):
+    g_ft[:, i] = savgol_filter(g_ft[:, i],  5, 2, mode='nearest')
+g_ft = g_ft.ravel()
+b_OMP = g_ft - f.ravel()
 plt.ion()
+g_tst = g.ravel()
 hest_anim = np.zeros((Nh, Nc, numiter))
 h_last = 0
 f_last = 0
@@ -183,14 +213,14 @@ for i in range(numiter):
     AH = la.LinearOperator((Nt * Ne, Nt * Ne), matvec=lambda x: olo.HT(olo.H(x, hest), hest) + lmbd_f * olo.DT(olo.D(x)))
 
     def fun(x):
-        res = olo.H(x, hest) - (g - x)
+        res = olo.H(x, hest) - (g_ft - x)
         min = olo.norm(res) + lmbd_f * olo.norm(olo.D(x))
-        jac = (AH * x + olo.H(x, hest) + olo.HT(x - g, hest) + (x - g))
+        jac = (AH * x + olo.H(x, hest) + olo.HT(x - g_ft, hest) + (x - g_ft))
         return min, jac
 
 
-    #x0 = fest.ravel()
-    x0 = np.zeros(Nt*Ne)
+    x0 = fest.ravel()
+    # x0 = np.zeros(Nt*Ne)
     fest = minimize(fun, x0, method=mthd, jac=True, options=opts).x.reshape(Nt, Ne)
 
     Hf_g_norm[i] = olo.norm(olo.H(fest) - crs)
@@ -205,9 +235,9 @@ for i in range(numiter):
     def omp_col(ii):
         AF = la.LinearOperator((Nt * Ne, Nh), matvec=lambda x: olo.Fo(x, ii, fest), rmatvec=lambda x: olo.FoT(x, ii, fest))
         AFp = my_pylops.LinearOperator(AF)
-        homp_col = my_pylops.optimization.sparsity.omp(AFp, b_OMP,
-                                        niter_outer=200,niter_inner=Ne, sigma=1e-10,
-                                        normalizecols=True, nonneg=False, discard=True)[0]
+        homp_col = my_pylops.optimization.sparsity.omp(AFp, g_ft - fest.ravel(),
+                                        niter_outer=300,niter_inner=Ne, sigma=1e-10,
+                                        normalizecols=True, nonneg=False, discard=False)[0]
 
         return homp_col
 
@@ -233,9 +263,9 @@ for i in range(numiter):
 plt.close("all")
 fig, axs = plt.subplots(nrows=2)
 axs[0].plot(Hest_H_norm[:i])
-axs[0].set_title("norm Fest - f")
+axs[1].set_title("norm Fest - f")
 axs[1].plot(Fest_F_norm[:i])
-axs[1].set_title("norm Hest - h")
+axs[0].set_title("norm Hest - h")
 
 fig, axs = plt.subplots(nrows=2)
 axs[0].plot(Hf_g_norm[:i])
