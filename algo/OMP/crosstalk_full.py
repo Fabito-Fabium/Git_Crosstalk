@@ -151,7 +151,7 @@ def get_lmbd_sub_f(lmbd_f_idx):
             AFp = my_pylops.LinearOperator(AF)
             homp_col = my_pylops.optimization.sparsity.omp(AFp, g_ft - fest.ravel(),
                                                            niter_outer=300, niter_inner=Ne, sigma=1e-10,
-                                                           normalizecols=True, nonneg=False, discard=True)[0]
+                                                           normalizecols=True, nonneg=True, discard=True)[0]
 
             return homp_col
 
@@ -189,9 +189,9 @@ plt.title(f"Lambda do subproblema Hf = g - f, melhor lmbd: {lmbd_f_spc[np.argmin
 
 # %% # Fh = g first ####################################################################################################
 Fest_F_norm, Hest_H_norm, Hf_g_norm, Fh_g_norm, Gest_G_norm, fest, hest = reset_all()
-lmbd_f = lmbd_f_spc[np.argmin(lmbd_par[:, 2])]
-print(lmbd_f)
-# lmbd_f = 0.01
+# lmbd_f = lmbd_f_spc[np.argmin(lmbd_par[:, 2])]
+# print(lmbd_f)
+lmbd_f = 0.01
 mthd = "L-BFGS-B"
 opts = {'maxiter': 1000, 'disp': False}
 
@@ -237,7 +237,7 @@ for i in range(numiter):
         AFp = my_pylops.LinearOperator(AF)
         homp_col = my_pylops.optimization.sparsity.omp(AFp, g_ft - fest.ravel(),
                                         niter_outer=300,niter_inner=Ne, sigma=1e-10,
-                                        normalizecols=True, nonneg=False, discard=False)[0]
+                                        normalizecols=True, nonneg=True, discard=False)[0]
 
         return homp_col
 
@@ -255,17 +255,17 @@ for i in range(numiter):
           f"{Fest_F_norm[i]: .5f} \t hest - h: {Hest_H_norm[i]: .5f} \t\t Hest(f) - g: {Gest_G_norm[i]: .5f}")
     plt.close('all')
 
-    if olo.norm(hest.ravel() - h.ravel()) < 1e-6:
-        break
+    # if olo.norm(hest.ravel() - h.ravel()) < 1e-6:
+    #     break
 
 
 # %% ###################################################################################################################
 plt.close("all")
 fig, axs = plt.subplots(nrows=2)
 axs[0].plot(Hest_H_norm[:i])
-axs[1].set_title("norm Fest - f")
-axs[1].plot(Fest_F_norm[:i])
 axs[0].set_title("norm Hest - h")
+axs[1].plot(Fest_F_norm[:i])
+axs[1].set_title("norm Fest - f")
 
 fig, axs = plt.subplots(nrows=2)
 axs[0].plot(Hf_g_norm[:i])
