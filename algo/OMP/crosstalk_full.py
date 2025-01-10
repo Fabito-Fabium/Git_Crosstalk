@@ -140,9 +140,21 @@ def get_lmbd_sub_f(lmbd_f_idx):
             return homp_col
 
 
-        par_out = Parallel(n_jobs=-2)(delayed(omp_col)(i) for i in range(Nc))
+        def fista_col(ii):
+            AF = la.LinearOperator((Nt * Ne, Nh), matvec=lambda x: olo.Fo(x, ii), rmatvec=lambda x: olo.FoT(x, ii))
+            AFp = my_pylops.LinearOperator(AF)
 
-        hest = np.array(par_out).T
+            l2 = pyproximal.L2(Op=AFp, b=g.ravel() - fest.ravel())
+            l1 = pyproximal.L1()
+            hfista_col = pyproximal.optimization.primal.ProximalGradient(l2, l1, x0=np.zeros(Nh),
+                                                                         epsg=0.014563484775012445, niter=200,
+                                                                         show=False, acceleration='fista', nonneg=True)
+
+            return hfista_col
+
+        par_out = Parallel(n_jobs=-2)(delayed(fista_col)(i) for i in range(Nc))
+
+        hest = np.array(par_out)
 
         Hf_g_norm[i] = olo.norm(olo.H(fest, h) - crs)
         Fh_g_norm[i] = olo.norm(olo.F(hest) - crs)

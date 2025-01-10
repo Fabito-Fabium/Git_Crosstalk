@@ -146,3 +146,62 @@ print(time() - t0)
 # %%
 show_stats(homp, w_g)
 show_hest(homp, "MOD OMP")
+# %%
+from joblib import Parallel, delayed
+lmbd_h = np.logspace(-5, 0, 50)
+norm_h = np.zeros(len(lmbd_h))
+
+for lmbd_idx in tqdm(range(len(lmbd_h))):
+    hfista = np.zeros((Nh, Nc))
+    crs_real =g.ravel() - f.ravel()
+    def fista_col(ii):
+        AF = la.LinearOperator((Nt * Ne, Nh), matvec=lambda x: olo.Fo(x, ii), rmatvec=lambda x: olo.FoT(x, ii))
+        AFp = my_pylops.LinearOperator(AF)
+
+        l2 = pyproximal.L2(Op=AFp, b=crs_real)
+        l1 = pyproximal.L1()
+        hfista_col = pyproximal.optimization.primal.ProximalGradient(l2, l1, x0=np.zeros(Nh),
+                            epsg=lmbd_h[lmbd_idx], niter=200, show=False, acceleration='fista', nonneg=True)
+
+        return hfista_col
+    hfista = Parallel(n_jobs=-1)(delayed(fista_col)(i) for i in range(Nc))
+    hfista = np.array(hfista)
+    norm_h[lmbd_idx] = olo.norm(hfista.T.ravel() - h.ravel())
+
+# %% ###################################################################################################################
+show_lmbd(lmbd_h, norm_h)
+
+
+hfista = np.zeros((Nh, Nc))
+t0 = time()
+crs_real =g.ravel() - f.ravel()
+def fista_col(ii):
+    AF = la.LinearOperator((Nt * Ne, Nh), matvec=lambda x: olo.Fo(x, ii), rmatvec=lambda x: olo.FoT(x, ii))
+    AFp = my_pylops.LinearOperator(AF)
+
+    l2 = pyproximal.L2(Op=AFp, b=crs_real)
+    l1 = pyproximal.L1()
+    hfista_col = pyproximal.optimization.primal.ProximalGradient(l2, l1, x0=np.zeros(Nh),
+                        epsg=lmbd_h[np.argmin(norm_h)], niter=200, show=False, acceleration='fista', nonneg=True)
+
+    return hfista_col
+hfista = Parallel(n_jobs=-1)(delayed(fista_col)(i) for i in range(Nc))
+hfista = np.array(hfista)
+print(time() - t0)
+# %%
+plt.close("all")
+fig, axs = plt.subplots(ncols=3)
+
+real = axs[0].imshow(h.reshape(Nh, Nc).T, aspect='auto', cmap='Greys', interpolation='nearest')
+axs[0].set_title(f"h real")
+nonn = axs[1].imshow(hfista, aspect='auto', cmap='Greys', interpolation='nearest')
+axs[1].set_title(f"FISTA NONNEGATIVE, norm={olo.norm(hfista.T.ravel() - h.ravel())}")
+# axs[1].set_title(f"FISTA NONNEGATIVE 200 iter, t={t0: .4f}s, norm={norm(hinv0-h.ravel())}")
+
+diff = axs[2].imshow((h.reshape(Nh, Nc)).T - (hfista), aspect='auto', cmap='Greys',
+                     interpolation='nearest')
+axs[2].set_title(f"h - hh")
+
+fig.colorbar(real, ax=axs[0])
+fig.colorbar(nonn, ax=axs[1])
+fig.colorbar(diff, ax=axs[2])
