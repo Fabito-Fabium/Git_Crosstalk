@@ -1,5 +1,7 @@
 # %% ###################################################################################################################
 import matplotlib
+import scipy.optimize
+
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 plt.ion()
@@ -15,6 +17,7 @@ import random
 import source.pyproximal as pyproximal
 from scipy.optimize import minimize
 from scipy.optimize import Bounds
+from scipy.optimize import lsq_linear
 
 from matplotlib import animation
 
@@ -82,6 +85,9 @@ x0 = np.zeros(Nh*Nc)
 
 AF = la.LinearOperator((Nt*Ne, Nh*Nc), matvec=lambda x: olo.F(x), rmatvec=lambda x: olo.FT(x))
 hest = minimize(fun, x0, method=mthd, jac=True, options=opts).x.reshape(Nh, Nc)
+# %%
+x = lsq_linear(AF, g, bounds=(0, np.inf), max_iter=50)
+
 # %% No regularization minres ##########################################################################################
 AF = la.LinearOperator((Nh*Nc, Nh*Nc), matvec=lambda x: olo.FT(olo.F(x, f), f)) #, rmatvec=lambda x: FT(F(x)))
 hest = la.minres(AF, olo.FT(crs).ravel(), x0=np.zeros(Nh*Nc), maxiter=500, show=True, rtol=1e-9)[0].reshape(Nh, Nc)  # 9 s
@@ -127,22 +133,25 @@ t0 = time()
 for i in tqdm(range(Nc)):
     AF = la.LinearOperator((Nt * Ne, Nh), matvec=lambda x: olo.Fo(x, i), rmatvec=lambda x: olo.FoT(x, i))
     AFp = my_pylops.LinearOperator(AF)
-    homp[:, i] = my_pylops.optimization.sparsity.omp(AFp, g.ravel() - f.ravel(),  niter_outer=200,
-                    niter_inner=Ne, sigma=1e-10, normalizecols=True, nonneg=False, discard=False)[0]
+    homp[:, i] = my_pylops.optimization.sparsity.omp(AFp, g.ravel() - f.ravel(),  niter_outer=1,
+                    niter_inner=Ne, sigma=1e-10, normalizecols=True, nonneg=True)[0]
 print(time() - t0)
+
+show_hest(homp, "OMP")
 # %%
 from joblib import Parallel, delayed
 homp = np.zeros((Nh, Nc))
-t0 = time()
+
 def omp_col(ii):
     AF = la.LinearOperator((Nt * Ne, Nh), matvec=lambda x: olo.Fo(x, ii), rmatvec=lambda x: olo.FoT(x, ii))
     AFp = my_pylops.LinearOperator(AF)
-    homp_col = my_pylops.optimization.sparsity.omp(AFp, g.ravel() - f.ravel(),  niter_outer=200,
-                    niter_inner=Ne, sigma=1e-10, normalizecols=True, nonneg=False, discard=False)[0]
+    homp_col = my_pylops.optimization.sparsity.omp(AFp, g.ravel() - f.ravel(),  niter_outer=1,
+                    niter_inner=200, sigma=1e-20, normalizecols=True, nonneg=True, discard=False)[0]
 
     return homp_col
-output = Parallel(n_jobs=-1)(delayed(omp_col)(i) for i in range(Nc))
-print(time() - t0)
+output= Parallel(n_jobs=-1)(delayed(omp_col)(i) for i in range(Nc))
+homp = np.array(output).T
+
 # %%
 show_stats(homp, w_g)
 show_hest(homp, "MOD OMP")

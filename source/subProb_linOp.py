@@ -30,8 +30,7 @@ class ownlinOp:
     def _get_(self):
         return self.f, self.h, self.idx, self.Nt, self.Ne, self.Nc, self.Nh
 
-    def Fo(self, x_, i, f=None):
-        dCss = 3
+    def Fo(self, x_, i, f=None, dCss=3):
         op, _, idx, Nt, Ne, _, _ = self._get_()
 
         if f is None:
@@ -56,14 +55,14 @@ class ownlinOp:
         return y.ravel()
 
 
-    def FoT(self, x_, i, f=None):
+    def FoT(self, x_, i, f=None, dCss = 3):
         op, _, idx, Nt, Ne, _, Nh = self._get_()
 
         if f is None:
             f = op
 
         f = f.reshape(Nt, Ne)
-        dCss = 3
+
         slcFT = slice(dCss + (Nt + 1) // 2 - (Nh + 1) // 2 + (Nt + 1) % 2,
                       -((Nt) // 2 - (Nh) // 2 - (Nt + 1) % 2) + dCss)
 
@@ -83,7 +82,31 @@ class ownlinOp:
             y[:, i] += self.FoT(x_, i, f)
         return y.ravel()
 
-    def H(self, x_, op=None):
+    def Ho(self, x_, i, h=None, dCss=3):
+        _, op, idx, Nt, Ne, _, Nh = self._get_()
+        if h is None:
+            h = op
+        h = h.reshape(Nh, self.Nc)
+        y = np.zeros((Nt, Ne), dtype=dtype)
+        ida = [idxa for idxa in idx if i in idxa]
+        for j, idx_ in enumerate(ida):
+            if i == ida[j][0]:
+                y[dCss:, ida[j][1]] += ss.convolve(x_, h[:, idx.index(idx_)], mode="same", method="fft")[:-dCss]
+            else:
+                y[dCss:, ida[j][0]] += ss.convolve(x_, h[:, idx.index(idx_)], mode="same", method="fft")[:-dCss]
+        return y.ravel()
+
+    def H(self, x, h=None):
+        _, op, idx, Nt, Ne, Nc, Nh = self._get_()
+
+        x_ = x.reshape(self.Nt, self.Ne)
+        y = np.zeros((self.Nt, self.Ne))
+
+        for i in range(self.Ne):
+            y += self.Ho(x_[:, i], i, h).reshape(Nt, Ne)
+        return y.ravel()
+
+    def H_old(self, x_, op=None):
         try:
             h = op.reshape(self.Nh, self.Nc, )
         except AttributeError:
@@ -96,7 +119,40 @@ class ownlinOp:
             y[self.dCss:, self.idx[i][1]] += ss.convolve(x[:, self.idx[i][0]], h[:, i], mode="same", method="fft")[:-self.dCss]
         return y.ravel()
 
-    def HT(self, x_, op=None):
+    def HoT(self, x, i, h=None, dCss=3):
+        _, op, idx, Nt, Ne, Nc, Nh = self._get_()
+        if -((Nh - 1) // 2) + dCss >= 0:
+            slcH = slice(dCss + Nh // 2, Nt + dCss + Nh // 2)
+        else:
+            slcH = slice(dCss + Nh // 2, -((Nh - 1) // 2) + dCss)
+
+        if h is None:
+            h = op.reshape(Nh, Nc, )
+        else:
+            h = h.reshape(Nh, Nc, )
+        x_ = x.reshape(Nt, Ne)
+        y = np.zeros((Nt), dtype=dtype)
+        ida = [idxa for idxa in idx if i in idxa]
+        for j, idx_ in enumerate(ida):
+            if i == idx_[0]:
+                y += ss.correlate(x_[:, idx_[1]], h[:, idx.index(idx_)], mode="full", method="fft")[slcH]
+            else:
+                y += ss.correlate(x_[:, idx_[0]], h[:, idx.index(idx_)], mode="full", method="fft")[slcH]
+        return y
+
+    def HT(self, x, h=None):
+        _, op, idx, Nt, Ne, Nc, Nh = self._get_()
+
+        if h is None:
+            h = op.reshape(Nh, Nc, )
+
+        x_ = x.reshape(Nt, Ne, )
+        y = np.zeros((Nt, Ne))
+        for i in range(Ne):
+            y[:, i] = self.HoT(x_, i, h, dCss=3)
+
+        return y.ravel()
+    def HT_old(self, x_, op=None):
         try:
             h = op.reshape(self.Nh, self.Nc, )
         except AttributeError:
@@ -114,6 +170,15 @@ class ownlinOp:
             y[:, self.idx[i][1]] += ss.correlate(x[:, self.idx[i][0]], h[:, i], mode="full")[slcH]
             y[:, self.idx[i][0]] += ss.correlate(x[:, self.idx[i][1]], h[:, i], mode="full")[slcH]
         return y.ravel()
+
+    def B(self, x, col):
+        x_ = np.zeros((self.Nt, self.Ne), dtype=dtype)
+        x_[:, col] = x
+        x_ = x_.ravel()
+        return x_
+    def BT(self, x, col):
+        return x.reshape(self.Nt, self.Ne)[:, col]
+
 
     def norm(self, x):
         return np.sum(x ** 2)

@@ -1,10 +1,11 @@
 # %%
 import matplotlib
 matplotlib.use('TkAgg')
+
 ########################################################################################################################
 # %%
 import pyproximal
-from time import time
+import time
 import cv2
 import scipy.signal as ss
 import numpy as np
@@ -14,9 +15,9 @@ import scipy.sparse.linalg as la
 from scipy import signal
 from matplotlib import animation
 
-import pyproximal
+import source.pyproximal as pyproximal
 import pylops.linearoperator as pl
-import pylops
+import source.pylops as pylops
 from tqdm import tqdm
 
 from source.synth_data import synth_data
@@ -28,7 +29,7 @@ from scipy.optimize import minimize
 from scipy.optimize import Bounds
 
 random.seed(42)
-
+plt.ion()
 # %% ###################################################################################################################
 def show_el(fest):
     #fest = D(fest).reshape(Nt, Ne)
@@ -71,6 +72,14 @@ def show_lmbd(lmbd_spc, norm_res):
     plt.ylabel("$||f-f_{est}||_2$")
     plt.title(f"Lambda do subproblema Hf = g - f, melhor lmbd: {lmbd_spc[np.argmin(norm_res)]}")
 
+def mimshow(data):
+    aux = np.array(data)
+    plt.cla()
+    if len(aux.ravel()) == Nt*Ne:
+        plt.imshow(aux.reshape(Nt, Ne), aspect='auto', interpolation='nearest')
+    else:
+        plt.imshow(aux.reshape(Nh, Nc), aspect='auto', interpolation='nearest')
+
 
 def print_stats(fest):
     print(f"||fh-f||^2: \t\t\t {olo.norm(fest - f)}")
@@ -86,12 +95,11 @@ Fs = 125e6
 Fc = 5e6
 Nh = 8
 Nt = 1875
-Ne = 10
+Ne = 5
 
 mySys = synth_data(Fs, Fc, Nh, Nt, Ne, vmax=1, bw=0.75, sim_dt=False)
 f, h, idx, crs = mySys.create_synth()
 olo = ownlinOp(Fs, Fc, Nh, Nt, Ne, f, h, idx, remez=True, filt=mySys.get_pulse())
-
 g_clean = crs + f.ravel()
 crs = olo.apply_SNR(crs, 40)[0]
 g, w_g = olo.apply_SNR(g_clean, 40)
@@ -192,7 +200,6 @@ lmbd = lmbd_spc[np.argmin(norm_res)]
 mthd = "CG"
 opts = {'maxiter': 500, 'disp': False}
 
-t0 = time()
 AH = la.LinearOperator((Nt * Ne, Nt * Ne), matvec=lambda x: olo.HT(olo.H(x, h), h) + lmbd * olo.DT(olo.D(x)))
 
 def fun(x):
@@ -204,7 +211,6 @@ def fun(x):
 x0 = np.zeros((Nt, Ne), dtype=dtype).ravel()
 fest = minimize(fun, x0, method=mthd, jac=True, options=opts).x.reshape(Nt, Ne)
 # fest = la.minres(AH, olo.HT(crs), x0=fest.ravel(), maxiter=200, rtol=1e-20, show=False)[0].reshape(Nt, Ne)
-t0 = time() - t0
 print(olo.norm(fest - f))
 
 # %%####################################################################################################################
@@ -216,11 +222,120 @@ show_el(fest)
 # single valued lambda
 AH = la.LinearOperator((Nt*Ne, Nt*Ne), matvec=lambda x: olo.H(x), rmatvec=lambda x: olo.HT(x))
 
-l2 = pyproximal.L2(Op=pylops.LinearOperator(AH), b=g.ravel())
-#l1 = pyproximal.L1(sigma=lambda x: normalized_energy(x))
-l1 = pyproximal.L1(sigma=lambda x:  1/(olo.score_teng(x) + 1e-5))
-lmbd = 0.02
+l2 = pyproximal.L2(Op=pylops.LinearOperator(AH), b=crs.ravel())
+l1 = pyproximal.L1(sigma=lambda x: olo.normalized_energy(x))
+# l1 = pyproximal.L1(sigma=lambda x:  1/(olo.score_teng(x) + 1e-150))
+lmbd = 1e-5
 #lmbd = lmbd_spc[np.argmin(norm_res)]
-t0 = time()
 fest = pyproximal.optimization.primal.ProximalGradient(l2, l1, x0=np.zeros(Nt*Ne), epsg=lmbd, niter=120, show=True, acceleration='fista', nonneg=False).reshape(Nt, Ne)
-t0 = time() - t0
+
+# %%
+from joblib import Parallel, delayed
+lmbd_spc = np.logspace(-10, 1, 50)
+mse_lmbd = np.zeros(len(lmbd_spc))
+norm_res = np.zeros(len(lmbd_spc))
+norm_fest = np.zeros(len(lmbd_spc))
+norm_f = np.zeros(len(lmbd_spc))
+
+mthd = "CG"
+opts = {'maxiter': 200, 'disp': False}
+
+for i in tqdm(range(len(lmbd_spc))):
+    def fista_col(ii):
+        AH = la.LinearOperator((Nt, Nt),
+                               matvec=lambda x: olo.HoT(olo.Ho(x, ii), ii) + olo.HoT(olo.B(x, ii), ii),
+                               rmatvec=lambda x: olo.HoT(olo.Ho(x, ii), ii) + olo.BT(olo.Ho(x, ii), ii))
+
+        l2 = pyproximal.L2(Op=pylops.LinearOperator(AH), b=olo.HoT(crs.ravel(), ii))
+        l1 = pyproximal.L1(sigma=lambda x: olo.normalized_energy(x))
+        # l1 = pyproximal.L1(sigma=lambda x:  1/(olo.score_teng(x) + 1e-150))
+        lmbd = lmbd_spc[i]
+        # lmbd = lmbd_spc[np.argmin(norm_res)]
+        fest = pyproximal.optimization.primal.ProximalGradient(l2, l1, x0=np.zeros(Nt), epsg=lmbd, niter=500,
+                                                               show=True, acceleration='fista', nonneg=False)
+
+        return fest
+
+
+    fest = Parallel(n_jobs=-1)(delayed(fista_col)(i) for i in range(Ne))
+    fh = np.array(fest).T
+
+    mse_lmbd[i] = np.mean(f - fh)**2
+    norm_res[i] = olo.norm(fh - f)
+    norm_fest[i] = olo.norm(fh)
+    norm_f[i] = olo.norm(f)
+# %%
+def fista_col(ii):
+    AH = la.LinearOperator((Nt, Nt),
+                           matvec=lambda x: olo.HoT(olo.Ho(x, ii), ii)+ olo.HoT(olo.B(x, ii), ii),
+                           rmatvec=lambda x: olo.HoT(olo.Ho(x, ii), ii) + olo.BT(olo.Ho(x, ii), ii))
+
+    l2 = pyproximal.L2(Op=pylops.LinearOperator(AH), b=olo.HoT(crs.ravel(), ii))
+    l1 = pyproximal.L1(sigma=lambda x: olo.normalized_energy(x))
+    # l1 = pyproximal.L1(sigma=lambda x:  1/(olo.score_teng(x) + 1e-150))
+    lmbd = lmbd_spc[np.argmin(norm_res)]
+    # lmbd = lmbd_spc[np.argmin(norm_res)]
+    fest = pyproximal.optimization.primal.ProximalGradient(l2, l1, x0=np.zeros(Nt), epsg=lmbd, niter=500,
+                                                           show=True, acceleration='fista', nonneg=False)
+
+    return fest
+fest = Parallel(n_jobs=-1)(delayed(fista_col)(i) for i in range(Ne))
+fest = np.array(fest).T
+print(np.mean(f - fh)**2)
+# %%
+
+mthd = "L-BFGS-B"
+opts = {'maxiter': 500, 'disp': False}
+hfista = np.zeros((Nh, Nc))
+crs_real = g.ravel() - f.ravel()
+lmbd = 1
+bounds = [(-1, 1)]
+def B(x, col):
+    x_ = np.zeros((Nt, Ne), dtype=dtype)
+    x_[:, col] = x
+    x_ = x_.ravel()
+    return x_
+
+def BT(x, col):
+    return x.reshape(Nt, Ne)[:, col]
+
+def L2_col(ii):
+    AH = la.LinearOperator((Nt, Nt),
+                           matvec=lambda x: olo.HoT(olo.Ho(x, ii), ii)+ olo.HoT(olo.B(x, ii), ii),
+                           rmatvec=lambda x: olo.HoT(olo.Ho(x, ii), ii) + olo.BT(olo.Ho(x, ii), ii))
+
+    WH = la.LinearOperator((Nt * Ne, Nt),
+                           matvec=lambda x: lmbd*olo.D(olo.B(x, ii)),
+                           rmatvec=lambda x: lmbd*olo.BT(olo.DT(x), ii))
+    def fun(x):
+        g_ = g - B(x, ii)
+
+        if (g_ == g).all():
+            jac = 2 * (AH.T * (AH * x) + WH.T * (WH * x) - AH.T * olo.HoT(g.ravel(), ii))
+            return np.inf, jac
+        else:
+            gw = g
+            gw[g_==g] = 0
+
+        jac = 2 * (AH.T * (AH * x) + WH.T * (WH * x) - AH.T * olo.HoT(g_.ravel(), ii))
+        res = AH*x - olo.HoT(g_, ii)
+        min = olo.norm(res)**2 + lmbd * olo.norm((WH*x)) #+ 1/(olo.norm(res)+1e-150)
+        return min, jac
+
+    x0 = np.zeros((Nt), dtype=dtype).ravel()
+    fest = minimize(fun, x0, method=mthd, jac=True, options=opts, bounds=bounds).x.reshape(Nt)
+    return fest
+fest = Parallel(n_jobs=-1)(delayed(L2_col)(i) for i in range(Ne))
+fest = np.array(fest).T
+print(olo.norm(fest.ravel() - (f.ravel())))
+# %%
+AH = la.LinearOperator((Nt * Ne, Nt), matvec=lambda x: olo.Ho(x, 1), rmatvec=lambda x: olo.HoT(x, 1))
+tst = AH @ f.reshape(Nt ,Ne)[:, 1]
+plt.plot(tst)
+
+# %%
+def s_colT(x, col):
+    h_ =  np.zeros((Nt))
+    h_[(col)] = 1
+    x_ = ss.correlate(x, h_.ravel(), mode='full')
+    return x_

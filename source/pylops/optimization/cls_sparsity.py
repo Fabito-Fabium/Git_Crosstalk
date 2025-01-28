@@ -4,8 +4,8 @@ import time
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
-from scipy.sparse.linalg import lsqr
-
+from scipy.sparse.linalg import lsqr, lsmr
+from scipy.optimize import lsq_linear
 from source.pylops import LinearOperator
 from source.pylops.basicoperators import Diagonal, Identity, VStack
 from source.pylops.optimization.basesolver import Solver
@@ -851,8 +851,17 @@ class OMP(Solver):
         else:
             # OMP update
             Opcol = self.Op.apply_columns(cols)
+
             if self.ncp == np:
-                x = lsqr(Opcol, self.y, iter_lim=self.niter_inner)[0]
+                if (nonneg == True):
+                    lsq_solved = lsq_linear(Opcol, self.y, max_iter=self.niter_inner, lsq_solver='lsmr', bounds=(1e-6, np.inf))
+                    x = lsq_solved.x
+
+                    print('nonneg')
+                else:
+                    x = lsqr(Opcol, self.y, iter_lim=self.niter_inner)[0]
+                    if (nonneg == True):
+                        x[0 > x] = 0
             else:
                 x = cgls(
                     Opcol,
@@ -860,10 +869,8 @@ class OMP(Solver):
                     self.ncp.zeros(int(Opcol.shape[1]), dtype=Opcol.dtype),
                     niter=self.niter_inner,
                 )[0]
-            if nonneg:
-                x[x<0] = 0
-            if discard:
-                x[x<np.max(x)] = 0
+
+
             self.res = self.y - Opcol.matvec(x)
 
         self.iiter += 1
