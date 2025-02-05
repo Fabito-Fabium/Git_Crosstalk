@@ -7,6 +7,7 @@ import numpy as np
 from scipy.sparse.linalg import lsqr, lsmr
 from scipy.optimize import lsq_linear
 from source.pylops import LinearOperator
+from scipy.sparse.linalg import LinearOperator as ssLO
 from source.pylops.basicoperators import Diagonal, Identity, VStack
 from source.pylops.optimization.basesolver import Solver
 from source.pylops.optimization.basic import cgls
@@ -736,7 +737,6 @@ class OMP(Solver):
         normalizecols: bool = False,
         show: bool = False,
         nonneg: bool = False,
-        discard: bool = False,
     ) -> None:
         r"""Setup solver
 
@@ -793,7 +793,6 @@ class OMP(Solver):
         cols: InputDimsLike,
         show: bool = False,
         nonneg: bool = False,
-        discard: bool = False,
     ) -> NDArray:
         r"""Run one step of solver
 
@@ -854,14 +853,11 @@ class OMP(Solver):
 
             if self.ncp == np:
                 if (nonneg == True):
-                    lsq_solved = lsq_linear(Opcol, self.y, max_iter=self.niter_inner, lsq_solver='lsmr', bounds=(1e-6, np.inf))
+                    Oplin = ssLO(shape=Opcol.shape, matvec=Opcol.matvec, rmatvec=Opcol.rmatvec)
+                    lsq_solved = lsq_linear(Oplin, self.y, max_iter=self.niter_inner, lsq_solver='lsmr', bounds=(0, np.inf))
                     x = lsq_solved.x
-
-                    print('nonneg')
                 else:
                     x = lsqr(Opcol, self.y, iter_lim=self.niter_inner)[0]
-                    if (nonneg == True):
-                        x[0 > x] = 0
             else:
                 x = cgls(
                     Opcol,
@@ -886,7 +882,6 @@ class OMP(Solver):
         show: bool = False,
         itershow: Tuple[int, int, int] = (10, 10, 10),
         nonneg: bool = False,
-        discard: bool = False,
     ) -> Tuple[NDArray, InputDimsLike]:
         r"""Run solver
 
@@ -922,7 +917,7 @@ class OMP(Solver):
                 )
                 else False
             )
-            x, cols = self.step(x, cols, showstep, nonneg=nonneg, discard=discard)
+            x, cols = self.step(x, cols, showstep, nonneg=nonneg)
             self.callback(x)
         return x, cols
 
@@ -970,7 +965,6 @@ class OMP(Solver):
         show: bool = False,
         itershow: Tuple[int, int, int] = (10, 10, 10),
         nonneg: bool = False,
-        discard: bool =False,
     ) -> Tuple[NDArray, int, NDArray]:
         r"""Run entire solver
 
@@ -1016,11 +1010,10 @@ class OMP(Solver):
             normalizecols=normalizecols,
             show=show,
             nonneg=nonneg,
-            discard=discard,
         )
         x: List[NDArray] = []
         cols: List[InputDimsLike] = []
-        x, cols = self.run(x, cols, show=show, itershow=itershow, nonneg=nonneg, discard=discard)
+        x, cols = self.run(x, cols, show=show, itershow=itershow, nonneg=nonneg)
         x = self.finalize(x, cols, show)
         return x, self.nouter, self.cost
 

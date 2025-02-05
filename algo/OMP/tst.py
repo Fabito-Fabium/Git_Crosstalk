@@ -80,7 +80,7 @@ for i in tqdm(range(Nc)):
     AF = la.LinearOperator((Nt * Ne, Nh), matvec=lambda x: olo.Fo(x, i), rmatvec=lambda x: olo.FoT(x, i))
     AFp = my_pylops.LinearOperator(AF)
     homp[:, i] = my_pylops.optimization.sparsity.omp(AFp, g.ravel() - f.ravel(),  niter_outer=1,
-                    niter_inner=Ne, sigma=1e-10, normalizecols=True, nonneg=True)[0]
+                    niter_inner=Ne, sigma=1e-10, normalizecols=True, nonneg=False)[0]
 print(time() - t0)
 
 show_hest(homp, "OMP")

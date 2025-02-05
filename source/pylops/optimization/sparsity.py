@@ -130,7 +130,6 @@ def omp(
     sigma: float = 1e-4,
     normalizecols: bool = False,
     nonneg: bool = False,
-    discard: bool = False,
     show: bool = False,
     itershow: Tuple[int, int, int] = (10, 10, 10),
     callback: Optional[Callable] = None,
@@ -204,7 +203,6 @@ def omp(
         show=show,
         itershow=itershow,
         nonneg=nonneg,
-        discard=discard,
     )
     return x, niter_outer, cost
 

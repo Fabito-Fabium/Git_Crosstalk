@@ -95,7 +95,7 @@ def reset_all():
     Hf_g_norm = np.zeros(numiter)
     Fh_g_norm = np.zeros(numiter)
     Gest_G_norm = np.zeros(numiter)
-    fest = (olo.apply_SNR(f, 5)[0]).reshape(Nt, Ne)
+    fest = np.zeros((Nt, Ne))
     return Fest_F_norm, Hest_H_norm, Hf_g_norm, Fh_g_norm, Gest_G_norm, fest, hest0
 
 numiter = 100
@@ -103,11 +103,13 @@ numiter = 100
 # plt.imshow(fest, aspect='auto', interpolation='nearest')
 # plt.title('Primeiro f estimado')
 # %% # Hf = g first ####################################################################################################
-lmbd_f_spc = np.logspace(-2.5, 0.5, 100)
-# lmbd_f_spc = np.arange(0.0119, 0.012, 0.0001/100)
+# lmbd_f_spc = np.logspace(-3, 0, 100)
+hagime = 0.05
+owari = 0.1
+lmbd_f_spc = np.arange(hagime, owari, (owari - hagime)/200)
 n_lmbd_f = np.zeros(len(lmbd_f_spc))
-mthd = "L-BFGS-B"
-opts = {'maxiter': 200, 'disp': False}
+mthd = "CG"
+opts = {'maxiter': 300, 'disp': False}
 def get_lmbd_sub_f(lmbd_f_idx):
     lmbd_f = lmbd_f_spc[lmbd_f_idx]
     print(f"\n current lmbd:{lmbd_f}\n")
@@ -122,8 +124,9 @@ def get_lmbd_sub_f(lmbd_f_idx):
 
         def fun(x):
             res = olo.H(x, hest) - (g - x)
-            min = olo.norm(res) + lmbd_f * olo.norm(olo.D(x))
+            min = olo.norm(res) + lmbd_f * olo.norm(olo.D(x)) # +lmbd_f/(olo.score_teng(x) + 1e-6)
             jac = (AH * x + olo.H(x, hest) + olo.HT(x - g, hest) + (x - g))
+            x.reshape(Nt,Ne)[0:10, :] = 0
             return min, jac
 
 
@@ -135,7 +138,7 @@ def get_lmbd_sub_f(lmbd_f_idx):
             AFp = my_pylops.LinearOperator(AF)
             homp_col = my_pylops.optimization.sparsity.omp(AFp, g.ravel() - fest.ravel(),
                                                            niter_outer=1, niter_inner=200, sigma=1e-20,
-                                                           normalizecols=True, nonneg=True, discard=False)[0]
+                                                           normalizecols=True, nonneg=True)[0]
             return homp_col
 
 
@@ -185,31 +188,33 @@ plt.title(f"Lambda do subproblema Hf = g - f, melhor lmbd: {lmbd_f_spc[np.argmin
 
 # %% # Fh = g first ####################################################################################################
 Fest_F_norm, Hest_H_norm, Hf_g_norm, Fh_g_norm, Gest_G_norm, fest, hest = reset_all()
-hest = h.copy()
-lmbd_f = 0.011925
-# lmbd_f = 1.2
-mthd = "L-BFGS-B"
-opts = {'maxiter': 200, 'disp': False}
+# lmbd_f = 0.0608
+lmbd_f = 0.056
+mthd = "CG"
+opts = {'maxiter': 300, 'disp': False}
 b_OMP = olo.apply_SNR(crs, 10)[0]
 plt.ion()
-hest_anim = np.zeros((Nh, Nc, numiter))
+hest_anim = np.zeros((Nh, Nc, numiter+1))
+fest_anim = np.zeros((Nt, Ne, numiter+1))
 h_last = 0
 f_last = 0
 # hest = olo.apply_SNR(hest, -2)[0]
+fest_anim[:, :, 0] = np.zeros((Nt, Ne))
+hest_anim[:, :, 0] = hest.reshape((Nh, Nc))
 x0 = np.zeros(Nt*Ne)
 for i in range(numiter):
-    hest_anim[:, :, i] = hest.reshape(Nh, Nc)
-
     AH = la.LinearOperator((Nt * Ne, Nt * Ne), matvec=lambda x: olo.HT(olo.H(x, hest), hest) + lmbd_f * olo.DT(olo.D(x)))
 
     def fun(x):
         res = olo.H(x, hest) - (g - x)
-        min = olo.norm(res) + lmbd_f * olo.norm(olo.D(x))
+        min = olo.norm(res) + lmbd_f * olo.norm(olo.D(x))# + lmbd_f/(olo.score_teng(x) + 1e-6)
         jac = (AH * x + olo.H(x, hest) + olo.HT(x - g, hest) + (x - g))
+        x.reshape(Nt, Ne)[0:10, :] = 0
         return min, jac
 
 
     fest = minimize(fun, x0, method=mthd, jac=True, options=opts).x.reshape(Nt, Ne)
+    fest_anim[:, :, i+1] = fest.reshape(Nt, Ne)
     x0 = fest.reshape(Nt*Ne)
 
 
@@ -227,13 +232,15 @@ for i in range(numiter):
         AFp = my_pylops.LinearOperator(AF)
         homp_col = my_pylops.optimization.sparsity.omp(AFp, g.ravel() - fest.ravel(),
                                         niter_outer=1, niter_inner=200, sigma=1e-20,
-                                        normalizecols=True, nonneg=True, discard=False)[0]
+                                        normalizecols=True, nonneg=True)[0]
 
         return homp_col
 
     par_out = Parallel(n_jobs=-1)(delayed(omp_col)(i) for i in range(Nc))
 
     hest = np.array(par_out).T
+    hest_anim[:, :, i+1] = hest.reshape(Nh, Nc)
+
     # def fista_col(ii):
     #     AF = la.LinearOperator((Nt * Ne, Nh), matvec=lambda x: olo.Fo(x, ii), rmatvec=lambda x: olo.FoT(x, ii))
     #     AFp = my_pylops.LinearOperator(AF)
@@ -266,21 +273,27 @@ for i in range(numiter):
 # %% ###################################################################################################################
 plt.close("all")
 fig, axs = plt.subplots(nrows=2)
+axs[0].plot(g.reshape(Nt, Ne)[:, 0])
+axs[1].plot(fest[:, 0])
+axs[0].set_title("Comparação entre a primeira coluna de g e fest")
+
+# %%
+fig, axs = plt.subplots(nrows=2)
 axs[0].plot(Hest_H_norm[:i])
-axs[0].set_title("norm hest - h")
+axs[0].set_title(f"norm hest - h, valor final: {Hest_H_norm[99]}")
 axs[1].plot(Fest_F_norm[:i])
-axs[1].set_title("norm fest - f")
+axs[1].set_title(f"norm fest - f, valor final: {Fest_F_norm[99]}")
 
 
 fig, axs = plt.subplots(nrows=2)
 axs[0].plot(Hf_g_norm[:i])
-axs[0].set_title("norm Hest(f) - g")
+axs[0].set_title(f"norm Hest(f) - g, valor final:{Hf_g_norm[99]}")
 axs[1].plot(Fh_g_norm[:i])
-axs[1].set_title("norm Fest(h) - g")
+axs[1].set_title(f"norm Fest(h) - g, valor final:{Fh_g_norm[99]}")
 
 plt.figure()
 plt.plot(Gest_G_norm[:i])
-plt.title("norm Hest(fest) - G ")
+plt.title(f"norm Hest(fest) - G, valor final:{Hest_H_norm[99]}")
 
 fig, axs = plt.subplots(ncols=2)
 h1 = axs[0].imshow(h.reshape(Nh,Nc).T, aspect='auto', cmap='Greys')
@@ -303,6 +316,25 @@ def animate(i):
 
 ani = animation.FuncAnimation(fig, animate, frames=50, interval=50)
 writervideo = animation.FFMpegWriter(fps=5)
+ani.save('hest_c15dB_h-MOD.mp4', writer=writervideo)
+plt.close()
+# %%
+fig, axs = plt.subplots(ncols=2)
+im0 = axs[0].imshow(hest_anim[:, :, 0].T, cmap='Greys', interpolation='nearest', aspect='auto')
+im1 = axs[1].imshow(fest_anim[:, :, 0], aspect='auto', interpolation='nearest', vmax=20, vmin=-20)
+plt.colorbar(im0)
+plt.show()
+
+def animate(i):
+    art0 = hest_anim[:, :, i].T
+    art1 = fest_anim[:, :, i]
+    im0.set_array(art0)
+    im1.set_array(art1)
+    im0.axes.set_title(f"{i}th hest")
+    im1.axes.set_title(f"{i}th fest")
+
+ani = animation.FuncAnimation(fig, animate, frames=101, interval=750)
+writervideo = animation.FFMpegWriter(fps=1)
 ani.save('hest_c15dB_h-MOD.mp4', writer=writervideo)
 plt.close()
 # %%

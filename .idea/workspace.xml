@@ -5,13 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="41c347de-886d-4c43-a40a-969d6d180e45" name="Changes" comment="Non-constant crosstalk index on optimization loop">
-      <change afterPath="$PROJECT_DIR$/algo/OMP/tst.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/algo/OMP/Fhg_OMP.py" beforeDir="false" afterPath="$PROJECT_DIR$/algo/OMP/Fhg_OMP.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/algo/OMP/Hfg subproblem.py" beforeDir="false" afterPath="$PROJECT_DIR$/algo/OMP/Hfg subproblem.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/algo/OMP/crosstalk_full.py" beforeDir="false" afterPath="$PROJECT_DIR$/algo/OMP/crosstalk_full.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/algo/OMP/tst.py" beforeDir="false" afterPath="$PROJECT_DIR$/algo/OMP/tst.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/source/pylops/optimization/cls_sparsity.py" beforeDir="false" afterPath="$PROJECT_DIR$/source/pylops/optimization/cls_sparsity.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/source/subProb_linOp.py" beforeDir="false" afterPath="$PROJECT_DIR$/source/subProb_linOp.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/source/pylops/optimization/sparsity.py" beforeDir="false" afterPath="$PROJECT_DIR$/source/pylops/optimization/sparsity.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -59,23 +58,23 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.Fhg_OMP.executor": "Debug",
-    "Python.cls_sparsity.executor": "Debug",
-    "Python.crosstalk_full.executor": "Debug",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "main",
-    "last_opened_file_path": "C:/Users/fabio/OneDrive/Documents/GitHub/Git_Crosstalk",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "PyScientificConfigurable",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.Fhg_OMP.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.cls_sparsity.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.crosstalk_full.executor&quot;: &quot;Debug&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/fabio/OneDrive/Documents/GitHub/Git_Crosstalk&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;PyScientificConfigurable&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -121,6 +120,11 @@
       <workItem from="1737950675169" duration="4434000" />
       <workItem from="1737980776389" duration="1300000" />
       <workItem from="1737983073639" duration="11626000" />
+      <workItem from="1738349478051" duration="1280000" />
+      <workItem from="1738350784649" duration="808000" />
+      <workItem from="1738361054643" duration="4047000" />
+      <workItem from="1738524097461" duration="671000" />
+      <workItem from="1738545363975" duration="11942000" />
     </task>
     <task id="LOCAL-00001" summary="Non-constant crosstalk index on optimization loop">
       <option name="closed" value="true" />

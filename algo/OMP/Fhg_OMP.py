@@ -48,6 +48,19 @@ def show_hest(hinv0, tit):
     fig.colorbar(nonn, ax=axs[1])
     fig.colorbar(diff, ax=axs[2])
 
+def show_fest(fest, tit):
+    plt.close("all")
+    fig, axs = plt.subplots(ncols=3)
+
+    real = axs[0].imshow(f.reshape(Nt, Ne), aspect='auto', interpolation='nearest')
+    axs[0].set_title(f"f real")
+    nonn = axs[1].imshow(fest.reshape(Nt, Ne), aspect='auto', interpolation='nearest')
+    axs[1].set_title(f"{tit}, norm={olo.norm(fest.ravel() - f.ravel())}")
+    # axs[1].set_title(f"FISTA NONNEGATIVE 200 iter, t={t0: .4f}s, norm={norm(hinv0-h.ravel())}")
+
+    diff = axs[2].imshow((f.reshape(Nt, Ne) - (fest).reshape(Nt, Ne)), aspect='auto', interpolation='nearest')
+    axs[2].set_title(f"f - fh")
+
 def show_stats(hest, w_g):
     print(f"||hh-h||^2: \t\t\t {olo.norm(hest.reshape(Nh, Nc) - h)}")
     print(f"||w||^2: \t\t\t\t {olo.norm(w_g)}")
